@@ -75,21 +75,20 @@ def run_scraper(limit=30, sleep_sec=5):
         )
         page = context.new_page()
         
-        # 先访问新书榜的基准前缀页面，以此为入口模拟人工作业
-        init_url = "https://fanqienovel.com/rank/0_1_1139"
+        # 先访问男频新书榜基准页，再动态读取该榜单下的分类。
+        init_url = "https://fanqienovel.com/rank/1_1_1141"
         print(f"[{datetime.now().strftime('%H:%M:%S')}] 正在初始化并访问基础榜单页：{init_url}")
         open_rank_page(page, init_url)
-        
-        # 动态解析页面左侧拥有的所有类别目录 (通过匹配对应的榜单路由规律)
-        categories_js = """
-        () => {
+        rank_prefix = "/" + "/".join(init_url.rstrip("/").split("/")[-2:]).rsplit("_", 1)[0] + "_"
+        categories_js = f"""
+        () => {{
             return Array.from(document.querySelectorAll('a'))
-                .filter(a => a.href.includes('/rank/0_1_'))
-                .map(a => ({
+                .filter(a => a.href.includes('{rank_prefix}'))
+                .map(a => ({{
                     name: a.innerText.trim(),
                     href: a.getAttribute('href')
-                }));
-        }
+                }}));
+        }}
         """
         categories = page.evaluate(categories_js)
         print(f"✅ 成功自适应提取到 {len(categories)} 个分类标签。开始全量模拟点击抓取下级数据...")
@@ -252,5 +251,5 @@ def run_scraper(limit=30, sleep_sec=5):
     print(f"\n✅ 当日选定类目任务已完毕或刷新！数据源：{output_file}")
 
 if __name__ == "__main__":
-    print("开始执行番茄女频新书榜抓取计划...")
+    print("开始执行番茄男频新书榜抓取计划...")
     run_scraper(limit=30, sleep_sec=5)
