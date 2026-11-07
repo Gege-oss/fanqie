@@ -6,7 +6,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: fanqie-rank-writes-main
+  group: fanqie-rank-writes-deploy
   cancel-in-progress: false
 
 on:
@@ -23,15 +23,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-    - name: Checkout Repository
+    - name: Checkout Deploy Branch
       uses: actions/checkout@v5
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        ref: main
+        ref: deploy
         fetch-depth: 0
 
-    - name: Sync Latest Main
-      run: git pull --ff-only origin main
+    - name: Sync Latest Deploy
+      run: git pull --ff-only origin deploy
 
     - name: Check if today's data exists
       id: check_data
@@ -73,15 +73,15 @@ jobs:
         API_KEY: ${{ secrets.API_KEY }}
         API_MODEL: ${{ secrets.API_MODEL }}
 
-    - name: Sync Latest Main Before Commit
-      run: git pull --rebase --autostash origin main
+    - name: Sync Latest Deploy Before Commit
+      run: git pull --rebase --autostash origin deploy
 
     - name: Commit and Push Changes
       uses: stefanzweifel/git-auto-commit-action@v7
       with:
         commit_message: "[Auto] Update Fanqie daily ranks"
         file_pattern: data api
-        branch: main
+        branch: deploy
 
     # ---- Deploy to GitHub Pages (inline, 绕过 GITHUB_TOKEN 不触发其他 workflow 的限制) ----
     - name: Setup Pages
