@@ -1,10 +1,5 @@
 name: Daily Fanqie Rank Scraper
 
-permissions:
-  contents: write
-  pages: write
-  id-token: write
-
 concurrency:
   group: fanqie-rank-writes-deploy
   cancel-in-progress: false
@@ -18,9 +13,10 @@ on:
 jobs:
   scrape-and-commit:
     runs-on: ubuntu-22.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: write
+    outputs:
+      pages_artifact: ${{ steps.pages_artifact.outputs.name }}
 
     steps:
     - name: Checkout Deploy Branch
@@ -83,17 +79,49 @@ jobs:
         file_pattern: data api
         branch: deploy
 
-    # ---- Deploy to GitHub Pages (inline, 绕过 GITHUB_TOKEN 不触发其他 workflow 的限制) ----
+    # A full workflow rerun uploads a new artifact, while a deploy-only rerun reuses this output.
+    - name: Set Pages artifact name
+      id: pages_artifact
+      run: echo "name=github-pages-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v5
+      with:
+        name: ${{ steps.pages_artifact.outputs.name }}
+        path: '.'
+
+  deploy-pages:
+    needs: scrape-and-commit
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment_retry.outputs.page_url || steps.deployment.outputs.page_url }}
+
+    steps:
     - name: Setup Pages
       uses: actions/configure-pages@v6
       with:
         enablement: true
 
-    - name: Upload Pages artifact
-      uses: actions/upload-pages-artifact@v5
-      with:
-        path: '.'
-
     - name: Deploy to GitHub Pages
       id: deployment
+      continue-on-error: true
       uses: actions/deploy-pages@v5
+      with:
+        artifact_name: ${{ needs.scrape-and-commit.outputs.pages_artifact }}
+
+    # The artifact lookup can briefly return no results after a successful upload.
+    - name: Wait before retrying Pages deployment
+      if: steps.deployment.outcome == 'failure'
+      run: sleep 30
+
+    - name: Retry GitHub Pages deployment
+      if: steps.deployment.outcome == 'failure'
+      id: deployment_retry
+      uses: actions/deploy-pages@v5
+      with:
+        artifact_name: ${{ needs.scrape-and-commit.outputs.pages_artifact }}
