@@ -6,13 +6,15 @@ concurrency:
 
 on:
   schedule:
-    # 每天 UTC 00:17（北京时间 08:17）计划运行，避开整点
-    - cron: '17 0 * * *'
+    # 每天北京时间 07:47（UTC 23:47）计划运行
+    - cron: '47 23 * * *'
   workflow_dispatch: # 允许手动在界面上点击 Run workflow
 
 jobs:
   scrape-and-commit:
     runs-on: ubuntu-22.04
+    env:
+      TZ: Asia/Shanghai
     permissions:
       contents: write
     outputs:
@@ -32,7 +34,7 @@ jobs:
     - name: Check if today's data exists
       id: check_data
       run: |
-        TODAY=$(date -u +"%Y%m%d")
+        TODAY=$(date +"%Y%m%d")
         FILE="data/fanqie_female_new_ranks_${TODAY}.json"
         if [ -f "$FILE" ]; then
           echo "exists=true" >> $GITHUB_OUTPUT
